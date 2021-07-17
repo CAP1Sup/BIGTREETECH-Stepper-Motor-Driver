@@ -19,9 +19,9 @@
 #define ENCODER_ACT_STATUS_REG (0x0010U)  // Activation status
 
 // Calculation constants
-#define POW_2_16                    65536.0   // 2^16
-#define POW_2_15                    32768.0   // 2^15
-#define POW_2_7                     128.0     // 2^7
+#define POW_2_16                    65536     // 2^16
+#define POW_2_15                    32768     // 2^15
+#define POW_2_7                     128       // 2^7
 #define DELETE_BIT_15               0x7FFF    // Used to delete everything except the first 15 bits
 #define CHANGE_UINT_TO_INT_15       0x8000    // Used to change unsigned 16 bit integer into signed
 #define CHECK_BIT_14                0x4000    // Used to check the 14th bit
@@ -278,14 +278,26 @@ class Encoder {
         void resetSafety();
 
         // Fast functions
+        // Reads the raw momentary encoder increments value from the angle register (unadjusted)
         uint16_t getRawIncrements();
+
+        // Returns the absolute momentary encoder increments (adjusted) in the range  of +/-335544 rev's of shaft
+        increments_t getAbsoluteIncrements();
+
+        // Returns the raw average encoder increments value from the angle register (unadjusted)
         uint16_t getRawIncrementsAvg();
 
+        // Returns the absolute increments of the encoder (adjusted) in the range  of +/-335544 rev's of shaft
+        increments_t getAbsoluteIncrementsAvg();
+
+        // Gets the momentary absolute angle of the motor
+        double getAbsoluteAngle();
+
         // High level encoder functions
-        // Reads the raw momentary value from the angle of the encoder (unadjusted)
+        // Reads the raw momentary value from the angle of the encoder (adjusted)
         double getRawAngle();
 
-        // Reads the raw average value from the angle of the encoder (unadjusted)
+        // Reads the raw average value from the angle of the encoder (adjusted)
         double getRawAngleAvg();
 
         // Returns a smoothed value of angle of the encoder
@@ -308,6 +320,7 @@ class Encoder {
         double getAbsoluteAngleAvg();
         float getAbsoluteAngleAvgFloat();
         void setStepOffset(double offset);
+        void setIncrementsOffset(uint16_t offset);
         void zero();
 
         // Encoder estimation
@@ -330,17 +343,19 @@ class Encoder {
         int32_t revolutions = 0;
 
         // Moving average instances
-        MovingAverage <float> speedAvg;
-        MovingAverage <int16_t> rawSpeedAvg;
-        MovingAverage <float> accelAvg;
-        MovingAverage <uint16_t> incrementAvg;
-        MovingAverage <float> absAngleAvg;
-        MovingAverage <int16_t> rawTempAvg;
+        MovingAverage <float, float> speedAvg;
+        MovingAverage <int16_t, int32_t> rawSpeedAvg;
+        MovingAverage <float, float> accelAvg;
+        MovingAverage <uint16_t, int32_t> incrementAvg;
+        MovingAverage <float, float> absAngleAvg;
+        MovingAverage <increments_t, increments_t> absIncrementsAvg;
+        MovingAverage <int16_t, int16_t> rawTempAvg;
 
         // The startup angle and rev offsets
         double startupAngleOffset = 0;
-        int32_t startupRevOffset = 0;
-        double encoderStepOffset = 0;
+        uint16_t startupIncrementsOffset = 0; // Fix AVAL - Angle Value Register
+        int16_t startupRevOffset = 0;         // Fix AREV - Angle Revolution Register
+        double encoderStepOffset = 0;         // calibration
 
         // SPI init structure
         SPI_HandleTypeDef spiConfig;

@@ -161,19 +161,14 @@ Encoder::Encoder() {
     accelAvg.begin(ACCEL_AVG_READINGS);
     incrementAvg.begin(ANGLE_AVG_READINGS);
     absAngleAvg.begin(ANGLE_AVG_READINGS);
+    absIncrementsAvg.begin(ANGLE_AVG_READINGS);
     rawTempAvg.begin(TEMP_AVG_READINGS);
 
     // Set the last raw revolution value (used to detect revolution change)
     lastRawRev = getRawRev();
 
-    // Populate the average angle reading table
-    for (uint8_t index = 0; index < ANGLE_AVG_READINGS; index++) {
-        getAngleAvg();
-    }
-
     // Set the offsets
-    startupAngleOffset = getRawAngleAvg();
-    startupRevOffset = getRawRev();
+    this -> zero();
 
     // Set the correct starting values for the estimation if using estimation
     #ifdef ENCODER_SPEED_ESTIMATION
@@ -485,7 +480,7 @@ void Encoder::setBitField(BitField_t bitField, uint16_t bitFNewValue) {
 }
 
 
-// Reads the raw momentary value from the angle register of the encoder (unadjusted)
+// Reads the raw momentary encoder increments value from the angle register (unadjusted)
 uint16_t Encoder::getRawIncrements() {
 
     // Create an accumulator for the raw data
@@ -499,39 +494,51 @@ uint16_t Encoder::getRawIncrements() {
 }
 
 
-// Reads the raw average value from the angle register of the encoder (unadjusted)
+// Returns the raw average encoder increments value from the angle register (unadjusted)
 uint16_t Encoder::getRawIncrementsAvg() {
 
     // Read the momentary rawData
-    uint16_t rawData = getRawIncrements();
-
     // Add the value to the filter
-    incrementAvg.add(rawData);
+    incrementAvg.add(getRawIncrements());
 
     // Return the average
     return incrementAvg.get();
 }
 
 
-// Reads the raw momentary value from the angle of the encoder (unadjusted ???)
-double Encoder::getRawAngle() {
+// Returns the absolute momentary encoder increments (adjusted) in the range  of +/-335544 rev's of shaft
+increments_t Encoder::getAbsoluteIncrements() {
 
-    // Create an accumulator for the raw data
-    uint16_t rawData = getRawIncrements();
-
-    // Calc the value (equation from TLE5012 library)
-    return ((360.0 / POW_2_15) * (double)rawData) - encoderStepOffset;
+    return ((getRev() * POW_2_15 + getRawIncrements()) >> REJECT_ENCODERS_LSB) - startupIncrementsOffset;
 }
 
 
-// Reads the raw average value from the angle of the encoder (unadjusted ???)
+// Returns the absolute average encoder increments (adjusted) in the range  of +/-335544 rev's of shaft
+increments_t Encoder::getAbsoluteIncrementsAvg() {
+
+    // Add a new value to the average
+    absIncrementsAvg.add(getRev() * POW_2_15 + getRawIncrements());
+
+    // Return the average
+    return absIncrementsAvg.get() - startupIncrementsOffset;
+}
+
+
+// Reads the raw momentary value from the angle of the encoder (adjusted)
+double Encoder::getRawAngle() {
+
+    // Read the momentary rawData
+    // Calc the value (equation from TLE5012 library)
+    return 360.0 * (getRawIncrements() >> REJECT_ENCODERS_LSB) / (POW_2_15 >> REJECT_ENCODERS_LSB) - encoderStepOffset;
+}
+
+
+// Reads the raw average value from the angle of the encoder (adjusted)
 double Encoder::getRawAngleAvg() {
 
-    // Read the raw average Steps
-    uint16_t rawData = getRawIncrementsAvg();
-
+    // Read the raw average increments
     // Calc the value (equation from TLE5012 library)
-    return 360.0 / POW_2_15 * (double)rawData - encoderStepOffset;
+    return 360.0 * getRawIncrementsAvg() / POW_2_15 - encoderStepOffset;
 }
 
 
@@ -791,7 +798,7 @@ int32_t Encoder::getRev() {
 }
 
 
-// Gets the absolute angle of the motor
+// Gets the average absolute angle of the motor
 double Encoder::getAbsoluteAngleAvg() {
 
     // Add a new value to the average
@@ -799,6 +806,13 @@ double Encoder::getAbsoluteAngleAvg() {
 
     // Return the average
     return absAngleAvg.getDouble();
+}
+
+
+// Gets the momentary absolute angle of the motor
+double Encoder::getAbsoluteAngle() {
+
+    return (float)((getRev() * 360) + getAngle());
 }
 
 
@@ -819,10 +833,23 @@ void Encoder::setStepOffset(double offset) {
 }
 
 
+// Sets the encoder's Increments
+void Encoder::setIncrementsOffset(uint16_t offset) {
+    startupIncrementsOffset = offset;
+}
+
+
 // Set encoder zero point
 void Encoder::zero() {
+
+    // Populate the average angle reading table
+    for (uint8_t index = 0; index < (ANGLE_AVG_READINGS * 2); index++) {
+        getRawIncrementsAvg();
+        delay(10);
+    }
 
     // Fix offsets
     startupAngleOffset = getRawAngleAvg();
     startupRevOffset = getRawRev();
+    startupIncrementsOffset = getRawIncrementsAvg();
 }

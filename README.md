@@ -47,6 +47,15 @@ G/M Code Table
 - M502 (ex M502) - Wipes all parameters from flash, then reboots the system
 - M907 (ex M907 R750, M907 I500) - Sets or gets the RMS(R) or Peak(P) current in mA. If dynamic current is enabled, then the accel(A), idle(I), and/or max(M) can be set or retrieved. If no value is set, then the current RMS current (no dynamic current) or the accel, idle, and max terms (dynamic current) will be returned.
 
+Using dip switches
+| Dip switch mappings
+| PIN     |    Normal orientation      |  Reversed orientation |
+|---------|----------------------------|-----------------------|
+| DIP_1   |    Microstep 1             |  Calibration mode     |
+| DIP_2   |    Microstep 2             |  Closed/Open loop     |
+| DIP_3   |    Closed/Open loop        |  Microstep 2          |
+| DIP_4   |    Calibration mode        |  Microstep 1          |
+
 ## Credits
 
 - [BTT](https://github.com/bigtreetech) - [Original code](https://github.com/bigtreetech/BIGTREETECH-Stepper-Motor-Driver)

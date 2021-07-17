@@ -10,12 +10,20 @@
 // Standard naming conventions
 #include "stdint.h"
 
+// Import the config
+#include "config.h"
 
 // A class used to store and calculate the values to be smoothed.
-template <typename T>
+// T - type of readings (readings[i] - elements of array).
+// total_T - type of the total (runningTotal) of the array.
+// If the readingsFactor is small and readings is small, T and total_T maybe of the same type without the runningTotal overflow.
+// For example, template <int16_t T, int16_t total_T> or template <float T, float total_T>
+// If the readingsFactor is large or readings are large, total_T must has larger size than T size.
+// For example, template <int16_t T, int32_t total_T> or template <float T, double total_T>
+template <typename T, typename total_T>
 class MovingAverage {
   private:
-    uint16_t readingsFactor = 10; // The smoothing factor. In average mode, this is the number of readings to average.
+    uint16_t readingsFactor = DEFAULT_AVG_FACTOR; // The smoothing factor. In average mode, this is the number of readings to average.
     uint16_t readingsPosition = 0; // Current position in the array
     uint16_t readingsNum = 0; // Number of readings currently being averaged
     T *readings; // Array of readings
@@ -24,35 +32,36 @@ class MovingAverage {
                  // X(0), X(readingsFactor-1), ..., X(2), X(1)
 
     // ! Dynamically decide which type to use for the total
-    double runningTotal = 0.0; // A cache of the total of the array, speeds up getting the average
+    total_T runningTotal = 0; // A cache of the total of the array, speeds up getting the average
 
   public:
     MovingAverage();
     ~MovingAverage(); // Destructor to clean up when class instance killed
-    void begin(uint16_t smoothFactor = 10);
+    void begin(uint16_t smoothFactor = DEFAULT_AVG_FACTOR);
     void add(T newReading);
-    T get();
-    double getDouble();
+    T get();            // Returns the smoothed result in same to type of readings
+    double getDouble(); // Returns the smoothed result as a double. Useful if the readings are of an integer type
+    float getFloat();   // Returns the smoothed result as a float. Useful if the readings are of an integer type. Usually faster than the getDouble()
     T getLast();
     void clear();
 };
 
 
 // Constructor
-template <typename T>
-MovingAverage<T>::MovingAverage () {}
+template <typename T, typename total_T>
+MovingAverage<T, total_T>::MovingAverage () {}
 
 
 // Destructor
-template <typename T>
-MovingAverage<T>::~MovingAverage () { // Destructor
+template <typename T, typename total_T>
+MovingAverage<T, total_T>::~MovingAverage () { // Destructor
     delete[] readings;
 }
 
 
 // Initialize the array for storing sensor values
-template <typename T>
-void MovingAverage<T>::begin (uint16_t smoothFactor) {
+template <typename T, typename total_T>
+void MovingAverage<T, total_T>::begin (uint16_t smoothFactor) {
 
     // Store the number of readings in the array
     readingsFactor = smoothFactor;
@@ -68,8 +77,8 @@ void MovingAverage<T>::begin (uint16_t smoothFactor) {
 
 
 // Add a value to the array
-template <typename T>
-void MovingAverage<T>::add (T newReading) {
+template <typename T, typename total_T>
+void MovingAverage<T, total_T>::add (T newReading) {
 
     // Keep record of the number of readings being averaged
     // This will count up to the array size then stay at that number
@@ -87,6 +96,10 @@ void MovingAverage<T>::add (T newReading) {
     // Store immediate value in the array
     readings[readingsPosition] = newReading;
 
+    #ifdef USE_POWER_2_FACTOR_AVGING
+    readingsPosition--;
+    readingsPosition &= readingsFactor - 1;
+    #else
     // If at the begin of the array
     if (readingsPosition == 0) {
 
@@ -97,26 +110,34 @@ void MovingAverage<T>::add (T newReading) {
         // Decrement to previous array position
         readingsPosition--;
     }
+    #endif
 }
 
 
-// Get the smoothed result
-template <typename T>
-T MovingAverage<T>::get() {
+// Get the smoothed result in same to type of readings
+template <typename T, typename total_T>
+T MovingAverage<T, total_T>::get() {
     return (runningTotal / readingsNum);
 }
 
 
 // Get the smoothed result as double type
-template <typename T>
-double MovingAverage<T>::getDouble() {
-    return runningTotal / readingsNum;
+template <typename T, typename total_T>
+double MovingAverage<T, total_T>::getDouble() {
+    return (double)runningTotal / readingsNum;
+}
+
+
+// Get the smoothed result as float type
+template <typename T, typename total_T>
+float MovingAverage<T, total_T>::getFloat() {
+    return (float)runningTotal / readingsNum;
 }
 
 
 // Gets the last result stored
-template <typename T>
-T MovingAverage<T>::getLast() {
+template <typename T, typename total_T>
+T MovingAverage<T, total_T>::getLast() {
 
     // Just return the last reading
     if (readingsPosition == 0) {
@@ -129,11 +150,11 @@ T MovingAverage<T>::getLast() {
 
 
 // Clears all stored values
-template <typename T>
-void MovingAverage<T>::clear () {
+template <typename T, typename total_T>
+void MovingAverage<T, total_T>::clear () {
 
     // Reset the counters
     readingsPosition = 0;
     readingsNum = 0;
-    runningTotal = 0.0;
+    runningTotal = 0;
 }

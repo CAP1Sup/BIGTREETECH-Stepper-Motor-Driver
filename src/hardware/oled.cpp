@@ -232,7 +232,7 @@ void displayMotorData() {
     writeOLEDString(0, LINE_HEIGHT, outBuffer, false);
 
     // Current angle of the motor
-    snprintf(outBuffer, OB_SIZE, "Deg: % 010.2f", motor.encoder.getAbsoluteAngleAvg());
+    snprintf(outBuffer, OB_SIZE, "Deg: % 10.2f", motor.encoder.getAbsoluteAngle());
     writeOLEDString(0, LINE_HEIGHT * 2, outBuffer, false);
 
     // Temp of the encoder (close to the motor temp)

@@ -65,6 +65,34 @@
 #endif
 
 
+// If we're using the faster averaging using a power of 2
+#ifdef USE_POWER_2_FACTOR_AVGING
+
+    // Define the default factor as 8
+    #define DEFAULT_AVG_FACTOR 8
+
+    // Check to make sure that the MovingAverage argument is valid
+    #if IS_POWER_2(RPM_AVG_READINGS) != 0
+        #error RPM_AVG_READINGS must be a power of 2 to use in fast MovingAverage!!!
+    #endif
+    #if IS_POWER_2(SPEED_AVG_READINGS) != 0
+        #error SPEED_AVG_READINGS must be a power of 2 to use in fast MovingAverage!!!
+    #endif
+    #if IS_POWER_2(ACCEL_AVG_READINGS) != 0
+        #error ACCEL_AVG_READINGS must be a power of 2 to use in fast MovingAverage!!!
+    #endif
+    #if IS_POWER_2(ANGLE_AVG_READINGS) != 0
+        #error ANGLE_AVG_READINGS must be a power of 2 to use in fast MovingAverage!!!
+    #endif
+    #if IS_POWER_2(TEMP_AVG_READINGS) != 0
+        #error TEMP_AVG_READINGS must be a power of 2 to use in fast MovingAverage!!!
+    #endif
+#else
+    // Define the default factor as 10
+    #define DEFAULT_AVG_FACTOR 10
+#endif
+
+
 // Create the firmware print string
 // Firmware feature prints
 #define VERSION_STRING            String(MAJOR_VERSION) + "." + String(MINOR_VERSION) + "." + String(PATCH_VERSION)

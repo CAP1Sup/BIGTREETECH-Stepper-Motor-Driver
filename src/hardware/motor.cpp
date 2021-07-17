@@ -92,6 +92,7 @@ float StepperMotor::getEstimRPM() {
 float StepperMotor::getDegreesPS() {
     calc:
     while (isStepping)
+        ; // wait end of stepping calculation
     float velocity = 1000000.0 * angleChange / (nowStepingSampleTime - prevStepingSampleTime);
     if (isStepping)
         goto calc;
@@ -108,7 +109,7 @@ float  StepperMotor::getSteppingRPM() {
 
 // Returns the angular deviation of the motor from the desired angle
 float StepperMotor::getAngleError() {
-    return (encoder.getAbsoluteAngleAvg() - (this -> desiredAngle));
+    return (encoder.getAbsoluteAngle() - getDesiredAngle());
 }
 
 
@@ -126,7 +127,7 @@ int32_t StepperMotor::getStepPhase() {
 
 // Returns the desired angle of the motor
 float StepperMotor::getDesiredAngle() {
-    return (this -> desiredAngle);
+    return microstepAngle * getHardStepCNT();
 }
 
 
@@ -292,6 +293,30 @@ void StepperMotor::setMicrostepping(uint16_t setMicrostepping) {
 
         // Fix the microsteps per rotation
         this -> microstepsPerRotation = round(360.0 / microstepAngle);
+
+        #ifdef MAINTAIN_FULL_STEP
+        // Set the microstepMultiplier according to the microstepDivisor
+        switch (this -> microstepDivisor) {
+        case 32:
+            this -> microstepMultiplier = 1;
+            break;
+        case 16:
+            this -> microstepMultiplier = 2;
+            break;
+        case 8:
+            this -> microstepMultiplier = 4;
+            break;
+        case 4:
+            this -> microstepMultiplier = 8;
+            break;
+        case 2:
+            this -> microstepMultiplier = 16;
+            break;
+        default:
+            this -> microstepMultiplier = 32;
+            break;
+        }
+        #endif
     }
 }
 
@@ -419,14 +444,16 @@ void StepperMotor::step(STEP_DIR dir, bool useMultiplier, bool updateDesiredPos)
     // Factor in the multiplier if specified
     if (useMultiplier) {
         angleChange *= (this -> microstepMultiplier);
-        stepChange *= (this -> microstepMultiplier);
+        stepChange = (this -> microstepMultiplier);
     }
 
     // Invert the change based on the direction
     if (dir == PIN) {
 
         // Use the DIR_PIN state
-        angleChange *= DIRECTION(GPIO_READ(DIRECTION_PIN)) * (this -> reversed);
+        int8_t dirNow = DIRECTION(GPIO_READ(DIRECTION_PIN)) * (this -> reversed);
+        angleChange *= dirNow;
+        stepChange *= dirNow;
     }
     //else if (dir == COUNTER_CLOCKWISE) {
         // Nothing to do here, the value is already positive
@@ -434,21 +461,18 @@ void StepperMotor::step(STEP_DIR dir, bool useMultiplier, bool updateDesiredPos)
     else if (dir == CLOCKWISE) {
         // Make the angle change in the negative direction
         angleChange = -angleChange;
+        stepChange = -stepChange;
     }
 
     #ifdef ENABLE_STEPPING_VELOCITY
         isStepping = false;
     #endif
 
-    // Fix the step change's sign
-    stepChange *= getSign(angleChange);
-
     // Update the desired angle if specified
     if (updateDesiredPos) {
 
         // Angles are basically just added to desired, not really much to do here
         this -> desiredAngle += angleChange;
-        this -> softStepCNT += stepChange;
     }
 
     // Motor's current angle must always be updated to correctly move the coils
@@ -456,7 +480,7 @@ void StepperMotor::step(STEP_DIR dir, bool useMultiplier, bool updateDesiredPos)
     this -> currentStep += stepChange; // Only moving one step in the specified direction
 
     // Drive the coils to their destination
-    this -> driveCoils(currentStep);
+    this -> driveCoils(this -> currentStep);
 }
 
 
@@ -749,6 +773,7 @@ void StepperMotor::calibrate() {
 
         // Get the angle, then wait for 10ms to allow encoder to update
         encoder.getRawAngleAvg();
+        delay(10);
     }
 
     // Measure encoder offset

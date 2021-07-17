@@ -60,6 +60,7 @@ void setup() {
     #ifdef CHECK_ENCODER_SPEED
         while(true) {
             GPIO_WRITE(LED_PIN, HIGH);
+            // #define SYSCLK_FREQ 128 <--
             motor.encoder.getRawAngleAvg();
             GPIO_WRITE(LED_PIN, LOW);
             delayMicroseconds(1);
